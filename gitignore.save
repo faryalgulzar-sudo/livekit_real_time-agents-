@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual env
+.venv/
+venv/
+ENV/
+env/
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs & cache
+*.log
+*.out
+*.tmp
+*.swp
+.cache/
+.pytest_cache/
+
+# IDE configs
+.vscode/
+.idea/
+
+# Environment files
+.env
+.env.local
+*.toml.local
+
+# LiveKit specific
+livekit.yaml
+livekit.toml
+*.db
+
+# Models / large files
+models/
+*.pt
+*.bin
+*.onnx
+*.ckpt
+
+# Audio / video test data
+*.wav
+*.mp3
+*.mp4
+*.m4a
+
+# Docker
+*.pid
+*.sock
+*.tar
+
+
+

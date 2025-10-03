@@ -1,0 +1,18 @@
+# LiveKit configuration
+[plugins]
+  
+# STT model 
+[plugins.stt]
+provider = "faster_whisper"
+path = "src/plugins/stt_faster_whisper.py"
+
+
+# Large Language Model (LLM)
+[plugins.llm]
+provider = "qwen_ollama"
+path = "src/plugins/llm_qwen_ollama.py"
+
+# Text-to-Speech (TTS)
+[plugins.tts]
+provider = "piper"
+path = "src/plugins/tts_piper.py"
