@@ -2,7 +2,6 @@
 
 import logging
 from dotenv import load_dotenv
-import os
 from livekit.agents import (
     Agent,
     AgentSession,
@@ -16,11 +15,11 @@ from livekit.agents import (
 )
 from livekit.plugins import silero, openai
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from pathlib import Path
 
 # import your custom plugins
-from plugins.stt_faster_whisper import create as create_stt
-from plugins.tts_piper import create as create_tts
+from plugins.stt_faster_whisper import create as create_stt  # Using local Faster Whisper
+# from plugins.tts_piper import create as create_tts  # Piper TTS option
+from plugins.tts_pyttsx3 import create as create_tts  # Pyttsx3 TTS option (offline, cross-platform)
 
 logger = logging.getLogger("agent")
 load_dotenv(".env.local")
@@ -39,20 +38,34 @@ def prewarm(proc: JobProcess):
 
 
 async def entrypoint(ctx: JobContext):
-    # Logging setup
     ctx.log_context_fields = {"room": ctx.room.name}
 
-    # Build session using your custom plugins
+    # Build session with custom plugins
+    tts_instance = create_tts()
+    logger.info(f"TTS created: {type(tts_instance)}")
+
     session = AgentSession(
-        stt=create_stt(),
+        stt=create_stt(),  # Local Faster Whisper
         llm=openai.LLM.with_ollama(model="qwen2.5:7b-instruct"),
-        tts=create_tts(),
+        tts=tts_instance,
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
     )
+    logger.info("AgentSession created successfully")
 
-    # Collect metrics
+    # ✅ HOOKS FOR STT + LLM OUTPUT
+    @session.on("transcript_received")
+    def _on_transcript(transcript):
+        if transcript.text.strip():
+            print(f"[STT] {transcript.speaker or 'User'}: {transcript.text}")
+
+    @session.on("response_received")
+    def _on_response(response):
+        if response.text.strip():
+            print(f"[LLM] {response.text}")
+
+    # Metrics collector
     usage_collector = metrics.UsageCollector()
 
     @session.on("metrics_collected")
@@ -60,27 +73,30 @@ async def entrypoint(ctx: JobContext):
         metrics.log_metrics(ev.metrics)
         usage_collector.collect(ev.metrics)
 
+    @session.on("agent_started_speaking")
+    def _on_agent_started_speaking():
+        logger.info("Agent started speaking")
+
+    @session.on("agent_stopped_speaking")
+    def _on_agent_stopped_speaking():
+        logger.info("Agent stopped speaking")
+
     async def log_usage():
         summary = usage_collector.get_summary()
         logger.info(f"Usage: {summary}")
 
     ctx.add_shutdown_callback(log_usage)
 
-    # Start the session
-    await session.start(
-        agent=Assistant()
-    )
-    '''async def entrypoint(ctx: JobContext):
     await ctx.connect()
-    agent = SalesAgent()
-    session = AgentSession()
-    await session.start(room=ctx.room, agent=agent)'''
-
-    # Connect agent to the room
-    await ctx.connect()
-    session = AgentSession()
-    await session.start(room=ctx.room, agent=agent)
+    await session.start(agent=Assistant())
 
 
+# ✅ THIS PART WAS MISSING BEFORE
 if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
+    logging.basicConfig(level=logging.INFO)  # Show INFO logs in console
+    cli.run_app(
+        WorkerOptions(
+            entrypoint_fnc=entrypoint,
+            prewarm_fnc=prewarm,
+        )
+    )
