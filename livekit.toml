@@ -1,15 +1,32 @@
 # LiveKit configuration
 [plugins]
   
-# STT model 
+# STT model (Speech-to-Text)
 [plugins.stt]
 provider = "faster_whisper"
 path = "src/plugins/stt_faster_whisper.py"
+model_size = "base"
+device = "cpu"
 
-
-
-
-# Text-to-Speech (TTS)
+# TTS model (Text-to-Speech) 
 [plugins.tts]
-provider = "piper"
-path = "src/plugins/tts_piper.py"
+provider = "pyttsx3"
+path = "src/plugins/tts_pyttsx3.py"
+rate = 150
+volume = 1.0
+voice_id = 0
+
+# LLM model (Language Model)
+[plugins.llm]
+provider = "openai_ollama"
+model = "qwen2.5:7b-instruct"
+base_url = "http://localhost:11434"  # Default Ollama URL
+
+# VAD (Voice Activity Detection)
+[plugins.vad]
+provider = "silero"
+
+# Turn Detection
+[plugins.turn_detection]
+provider = "multilingual"
+
