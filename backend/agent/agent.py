@@ -13,7 +13,7 @@ from livekit.agents import (
     metrics,
 )
 from livekit.plugins import silero, openai
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+# from livekit.plugins.turn_detector.multilingual import MultilingualModel  # Disabled - requires model download
 
 # import your custom plugins
 from plugins.stt_faster_whisper import create as create_stt  # Using local Faster Whisper
@@ -51,7 +51,7 @@ async def entrypoint(ctx: JobContext):
         stt=create_stt(),  # Local Faster Whisper
         llm=openai.LLM.with_ollama(model=ollama_model),
         tts=create_tts(),  # Edge TTS
-        turn_detection=MultilingualModel(),
+        # turn_detection=MultilingualModel(),  # Disabled - use VAD only for turn detection
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
     )
