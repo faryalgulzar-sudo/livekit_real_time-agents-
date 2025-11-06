@@ -12,6 +12,8 @@ export default function Home() {
     isSpeaking,
     audioLevel,
     transcripts,
+    chatMessages,
+    sendChatMessage,
     connect,
     disconnect,
     toggleSpeaking,
@@ -79,7 +81,11 @@ export default function Home() {
           />
 
           {/* Chat Panel */}
-          <ChatPanel />
+          <ChatPanel
+            messages={chatMessages}
+            onSendMessage={sendChatMessage}
+            isConnected={connectionStatus === 'connected'}
+          />
         </div>
 
         {/* Transcript Panel */}

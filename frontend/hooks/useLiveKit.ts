@@ -4,6 +4,13 @@ import { CONFIG, TokenResponse, TranscriptMessage } from '@/lib/config';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
+export interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'agent' | 'system';
+  timestamp: Date;
+}
+
 interface UseLiveKitReturn {
   // Connection state
   connectionStatus: ConnectionStatus;
@@ -16,6 +23,10 @@ interface UseLiveKitReturn {
 
   // Transcripts
   transcripts: TranscriptMessage[];
+
+  // Chat messages
+  chatMessages: ChatMessage[];
+  sendChatMessage: (message: string) => Promise<void>;
 
   // Actions
   connect: () => Promise<void>;
@@ -34,6 +45,7 @@ export function useLiveKit(): UseLiveKitReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [currentVolume, setCurrentVolume] = useState(0.8);
 
@@ -137,7 +149,12 @@ export function useLiveKit(): UseLiveKitReturn {
     // Participant connected
     room.on(LiveKit.RoomEvent.ParticipantConnected, (participant) => {
       console.log('Participant connected:', participant.identity);
-      addTranscript('System', `${participant.identity} joined the room`);
+      const isAgent = participant.identity.startsWith('agent-');
+      if (isAgent) {
+        addTranscript('System', `✅ Agent joined: ${participant.identity}`);
+      } else {
+        addTranscript('System', `${participant.identity} joined the room`);
+      }
     });
 
     // Participant disconnected
@@ -167,17 +184,32 @@ export function useLiveKit(): UseLiveKitReturn {
       track.detach().forEach((element) => element.remove());
     });
 
-    // Data received (for transcripts)
+    // Data received (for transcripts and chat messages)
     room.on(LiveKit.RoomEvent.DataReceived, (payload, participant) => {
       try {
         const message = new TextDecoder().decode(payload);
-        const data = JSON.parse(message);
 
-        if (data.type === 'transcript') {
-          addTranscript(participant?.identity || 'Agent', data.text);
+        // Try to parse as JSON first (for structured messages like transcripts)
+        try {
+          const data = JSON.parse(message);
+          if (data.type === 'transcript') {
+            addTranscript(participant?.identity || 'Agent', data.text);
+          }
+        } catch {
+          // Not JSON - treat as plain text chat message from agent
+          console.log('💬 [CHAT] Received message from agent:', message);
+
+          const chatMsg: ChatMessage = {
+            id: Date.now().toString() + Math.random(),
+            text: message,
+            sender: 'agent',
+            timestamp: new Date(),
+          };
+
+          setChatMessages((prev) => [...prev, chatMsg]);
         }
       } catch (err) {
-        console.error('Failed to parse data:', err);
+        console.error('Failed to process data:', err);
       }
     });
 
@@ -235,7 +267,22 @@ export function useLiveKit(): UseLiveKitReturn {
       console.log('Connected successfully');
       setRoom(newRoom);
       setConnectionStatus('connected');
-      addTranscript('System', `Connected to room: ${CONFIG.DEFAULT_ROOM}`);
+      addTranscript('System', `Connected to your private room: ${tokenData.room_name}`);
+
+      // Check for existing participants (like the agent)
+      console.log('Checking for existing participants in room...');
+      const existingParticipants = Array.from(newRoom.remoteParticipants.values());
+      console.log(`Found ${existingParticipants.length} existing participants:`, existingParticipants.map(p => p.identity));
+
+      existingParticipants.forEach((participant) => {
+        const isAgent = participant.identity.startsWith('agent-');
+        console.log(`Participant: ${participant.identity}, isAgent: ${isAgent}`);
+        if (isAgent) {
+          addTranscript('System', `✅ Agent is ready: ${participant.identity}`);
+        } else {
+          addTranscript('System', `${participant.identity} is already in the room`);
+        }
+      });
     } catch (err) {
       console.error('Connection failed:', err);
       setError(err instanceof Error ? err.message : 'Connection failed');
@@ -303,6 +350,46 @@ export function useLiveKit(): UseLiveKitReturn {
     }
   }, [room]);
 
+  // Send chat message via data channel
+  const sendChatMessage = useCallback(async (message: string) => {
+    if (!room || !message.trim()) {
+      console.warn('Cannot send message: room not connected or empty message');
+      return;
+    }
+
+    try {
+      console.log('💬 [CHAT] Sending message:', message);
+
+      // Add user message to chat immediately
+      const userMsg: ChatMessage = {
+        id: Date.now().toString() + Math.random(),
+        text: message,
+        sender: 'user',
+        timestamp: new Date(),
+      };
+      setChatMessages((prev) => [...prev, userMsg]);
+
+      // Send message to room via data channel
+      const encoder = new TextEncoder();
+      const data = encoder.encode(message);
+      await room.localParticipant.publishData(data, { reliable: true });
+
+      console.log('✅ [CHAT] Message sent successfully');
+    } catch (err) {
+      console.error('Failed to send chat message:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send message');
+
+      // Add error message to chat
+      const errorMsg: ChatMessage = {
+        id: Date.now().toString() + Math.random(),
+        text: 'Failed to send message. Please try again.',
+        sender: 'system',
+        timestamp: new Date(),
+      };
+      setChatMessages((prev) => [...prev, errorMsg]);
+    }
+  }, [room]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -320,6 +407,8 @@ export function useLiveKit(): UseLiveKitReturn {
     isSpeaking,
     audioLevel,
     transcripts,
+    chatMessages,
+    sendChatMessage,
     connect,
     disconnect,
     toggleSpeaking,

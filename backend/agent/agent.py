@@ -140,6 +140,75 @@ async def entrypoint(ctx: JobContext):
     await session.start(agent=Assistant(), room=ctx.room)
     logger.info("✅ Agent session started!")
 
+    # ✅ ADD CHAT MESSAGE HANDLER (parallel to voice)
+    @ctx.room.on("data_received")
+    def on_data_received(data_packet: rtc.DataPacket):
+        """Handle text chat messages from users"""
+        logger.info(f"📩 [DEBUG] Data packet received! Kind: {data_packet.kind}")
+        if data_packet.kind == rtc.DataPacketKind.KIND_RELIABLE:
+            try:
+                message_text = data_packet.data.decode('utf-8')
+                logger.info(f"💬 [CHAT] Received message: {message_text}")
+
+                # Process chat message asynchronously
+                import asyncio
+                asyncio.create_task(handle_chat_message(message_text, ctx.room))
+            except Exception as e:
+                logger.error(f"❌ Error decoding chat message: {e}")
+        else:
+            logger.info(f"⚠️ [DEBUG] Ignoring unreliable data packet")
+
+
+async def handle_chat_message(message: str, room: rtc.Room):
+    """Process chat message through LLM and send response"""
+    logger.info(f"🔄 [CHAT] Starting to process message: {message}")
+    try:
+        # Get Ollama model from environment
+        ollama_model = os.getenv("OLLAMA_MODEL", "gemma3:1b")
+        logger.info(f"💬 [CHAT] Processing with model: {ollama_model}")
+
+        # Import ollama
+        import ollama
+        logger.info("📦 [CHAT] Ollama imported successfully")
+
+        # Get LLM response
+        logger.info("🤖 [CHAT] Calling ollama.chat()...")
+        response = ollama.chat(
+            model=ollama_model,
+            messages=[{
+                "role": "system",
+                "content": "You are a helpful AI assistant. Keep responses clear and concise."
+            }, {
+                "role": "user",
+                "content": message
+            }]
+        )
+
+        reply = response['message']['content']
+        logger.info(f"✅ [CHAT] Agent reply: {reply}")
+
+        # Send response back as data message
+        logger.info("📤 [CHAT] Publishing response to room...")
+        await room.local_participant.publish_data(
+            reply.encode('utf-8'),
+            reliable=True
+        )
+        logger.info("✅ [CHAT] Response sent to room successfully")
+
+    except Exception as e:
+        import traceback
+        logger.error(f"❌ Error handling chat message: {e}")
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
+        # Send error message back
+        try:
+            error_msg = f"Sorry, I encountered an error: {str(e)}"
+            await room.local_participant.publish_data(
+                error_msg.encode('utf-8'),
+                reliable=True
+            )
+        except Exception as send_error:
+            logger.error(f"❌ Failed to send error message: {send_error}")
+
 
 # ✅ THIS PART WAS MISSING BEFORE
 if __name__ == "__main__":

@@ -40,6 +40,7 @@ async def root():
 async def generate_token(request: TokenRequest):
     """
     Generate JWT token for a participant to join a LiveKit room
+    Each user gets a unique room with format: room-{user_id}
 
     Args:
         request: TokenRequest containing room_name and participant_name
@@ -48,8 +49,12 @@ async def generate_token(request: TokenRequest):
         TokenResponse with JWT token and LiveKit server URL
     """
     try:
+        # Generate unique room name per user based on participant name
+        # This ensures each user gets their own room with dedicated agent
+        unique_room_name = f"room-{request.participant_name}"
+
         token = generate_access_token(
-            room_name=request.room_name,
+            room_name=unique_room_name,
             participant_name=request.participant_name,
             metadata=request.metadata
         )
@@ -59,7 +64,7 @@ async def generate_token(request: TokenRequest):
         return TokenResponse(
             token=token,
             url=livekit_url,
-            room_name=request.room_name,
+            room_name=unique_room_name,
             participant_name=request.participant_name
         )
     except Exception as e:

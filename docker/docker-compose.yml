@@ -50,11 +50,11 @@ services:
       dockerfile: Dockerfile
     container_name: agent786-frontend
     ports:
-      - "3001:3001"
+      - "3000:3000"
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=https://agent007.drap.ai
-      - PORT=3001
+      - PORT=3000
     volumes:
       - ../frontend:/app
       - /app/node_modules
@@ -65,4 +65,4 @@ services:
 
 networks:
   agent786-network:
-    driver: bridge
+    driver: 
