@@ -5,22 +5,20 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: agent786-fastapi
-    working_dir: /app
-    ports:
-      - "8000:8000"
+    working_dir: /app/backend/agent
     environment:
       - LIVEKIT_URL=${LIVEKIT_URL:-wss://livekit.drap.ai}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
-    command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
+      - DATABASE_URL=${DATABASE_URL:-postgresql://dentist:dentist_pass@localhost:5432/dentist_ai}
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ../backend/api:/app/backend/api
       - ../backend/agent:/app/backend/agent
       - ../config/.env.local:/app/config/.env.local
-    networks:
-      - agent786-network
     restart: unless-stopped
+    network_mode: host
 
   # LiveKit Agent Worker
   agent:
@@ -34,6 +32,9 @@ services:
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://dentist:dentist_pass@localhost:5432/dentist_ai}
+      - AGENT_API_BASE_URL=${AGENT_API_BASE_URL:-http://localhost:8000}
+      - TENANT_ID=${TENANT_ID:-demo_clinic}
     command: python backend/agent/agent.py dev
     volumes:
       - ../backend/agent:/app/backend/agent
@@ -65,4 +66,4 @@ services:
 
 networks:
   agent786-network:
-    driver: 
+    driver: bridge

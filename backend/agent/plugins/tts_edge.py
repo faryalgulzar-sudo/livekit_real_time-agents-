@@ -103,7 +103,7 @@ class EdgeSynthesizeStream(SynthesizeStream):
             import traceback
             traceback.print_exc()
         finally:
-            output_emitter.close()
+            output_emitter.aclose()
 
     async def __anext__(self) -> SynthesizedAudio:
         if self._task is None:

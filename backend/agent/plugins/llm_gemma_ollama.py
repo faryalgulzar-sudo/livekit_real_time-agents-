@@ -2,7 +2,7 @@
 import ollama
 
 class QwenOllamaLLM:
-    def __init__(self, model="gemma3:1b"):
+    def __init__(self, model="qwen2.5:1.5b-instruct"):
 
     def chat(self, prompt: str) -> str:
         response = ollama.chat(model=self.model, messages=[{"role": "user", "content": prompt}])

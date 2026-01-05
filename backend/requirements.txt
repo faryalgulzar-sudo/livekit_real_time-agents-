@@ -41,5 +41,17 @@ pydantic>=2.5.0
 # - livekit-client (JS) - loaded from: https://unpkg.com/livekit-client/dist/livekit-client.umd.js
 # - Pure HTML/CSS/JavaScript - no Python packages needed
 
-# ===== Audio Processing Dependencies =====
-ffmpeg-python>=0.2.0  # Required by pydub for audio conversion
+#
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+python-dotenv
+pydantic
+requests
+httpx
+orjson
+python-dateutil
+loguru
+alembic
+requests
