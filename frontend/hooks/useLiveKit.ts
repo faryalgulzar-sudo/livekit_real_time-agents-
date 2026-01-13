@@ -3,6 +3,7 @@ import * as LiveKit from 'livekit-client';
 import { CONFIG, TokenResponse, TranscriptMessage } from '@/lib/config';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
+export type AgentStatus = 'waiting' | 'loading' | 'ready';
 
 export interface ChatMessage {
   id: string;
@@ -14,6 +15,8 @@ export interface ChatMessage {
 interface UseLiveKitReturn {
   // Connection state
   connectionStatus: ConnectionStatus;
+  agentStatus: AgentStatus;
+  agentStatusMessage: string;
   userId: string;
   room: LiveKit.Room | null;
 
@@ -40,6 +43,8 @@ interface UseLiveKitReturn {
 
 export function useLiveKit(): UseLiveKitReturn {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  const [agentStatus, setAgentStatus] = useState<AgentStatus>('waiting');
+  const [agentStatusMessage, setAgentStatusMessage] = useState('');
   const [userId, setUserId] = useState('');
   const [room, setRoom] = useState<LiveKit.Room | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -184,7 +189,7 @@ export function useLiveKit(): UseLiveKitReturn {
       track.detach().forEach((element) => element.remove());
     });
 
-    // Data received (for transcripts and chat messages)
+    // Data received (for transcripts, chat messages, and agent status)
     room.on(LiveKit.RoomEvent.DataReceived, (payload, participant) => {
       try {
         const message = new TextDecoder().decode(payload);
@@ -194,6 +199,16 @@ export function useLiveKit(): UseLiveKitReturn {
           const data = JSON.parse(message);
           if (data.type === 'transcript') {
             addTranscript(participant?.identity || 'Agent', data.text);
+          } else if (data.type === 'agent_status') {
+            // Handle agent status updates (loading, ready)
+            console.log('📡 [STATUS] Agent status:', data.status, data.message);
+            setAgentStatus(data.status as AgentStatus);
+            setAgentStatusMessage(data.message || '');
+            if (data.status === 'loading') {
+              addTranscript('System', `⏳ ${data.message || 'Agent loading...'}`);
+            } else if (data.status === 'ready') {
+              addTranscript('System', `✅ ${data.message || 'Agent ready!'}`);
+            }
           }
         } catch {
           // Not JSON - treat as plain text chat message from agent
@@ -256,6 +271,11 @@ export function useLiveKit(): UseLiveKitReturn {
           echoCancellation: true,
           noiseSuppression: true,
         },
+        publishDefaults: {
+          audioPreset: LiveKit.AudioPresets.speech,
+          dtx: true,
+          red: true,
+        },
       });
 
       // Setup event listeners
@@ -268,6 +288,23 @@ export function useLiveKit(): UseLiveKitReturn {
       setRoom(newRoom);
       setConnectionStatus('connected');
       addTranscript('System', `Connected to your private room: ${tokenData.room_name}`);
+
+      // Auto-enable microphone on connect
+      try {
+        await newRoom.localParticipant.setMicrophoneEnabled(true);
+        console.log('🎤 Microphone auto-enabled');
+        setIsSpeaking(true);
+        addTranscript('System', '🎤 Microphone enabled - you can speak now');
+
+        // Start audio level monitoring for the microphone
+        const micTrack = newRoom.localParticipant.getTrackPublication(LiveKit.Track.Source.Microphone);
+        if (micTrack?.track instanceof LiveKit.LocalAudioTrack) {
+          console.log('🎤 Starting audio level monitoring');
+          monitorAudioLevel(micTrack.track);
+        }
+      } catch (micErr) {
+        console.warn('Failed to auto-enable microphone:', micErr);
+      }
 
       // Check for existing participants (like the agent)
       console.log('Checking for existing participants in room...');
@@ -289,7 +326,7 @@ export function useLiveKit(): UseLiveKitReturn {
       setConnectionStatus('disconnected');
       throw err;
     }
-  }, [addTranscript, setupRoomEvents]);
+  }, [addTranscript, setupRoomEvents, monitorAudioLevel]);
 
   // Disconnect from room
   const disconnect = useCallback(async () => {
@@ -313,9 +350,13 @@ export function useLiveKit(): UseLiveKitReturn {
     try {
       if (!isSpeaking) {
         console.log('Starting microphone...');
+
+        // Enable microphone
         await room.localParticipant.setMicrophoneEnabled(true);
 
         const micTrack = room.localParticipant.getTrackPublication(LiveKit.Track.Source.Microphone);
+        console.log('Microphone track published:', micTrack?.trackSid, 'source:', micTrack?.source);
+
         if (micTrack?.track instanceof LiveKit.LocalAudioTrack) {
           monitorAudioLevel(micTrack.track);
         }
@@ -402,6 +443,8 @@ export function useLiveKit(): UseLiveKitReturn {
 
   return {
     connectionStatus,
+    agentStatus,
+    agentStatusMessage,
     userId,
     room,
     isSpeaking,

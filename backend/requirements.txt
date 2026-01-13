@@ -9,6 +9,7 @@ livekit-plugins-openai>=0.5.0
 
 # ===== Speech-to-Text (STT) =====
 faster-whisper>=1.0.3
+ctranslate2>=4.0.0  # GPU support for faster-whisper
 
 # ===== Text-to-Speech (TTS) =====
 edge-tts>=6.1.0
@@ -42,6 +43,12 @@ python-dateutil>=2.8.2
 orjson>=3.9.10
 loguru>=0.7.2
 typing-extensions>=4.9.0
+
+# ===== Authentication =====
+passlib[bcrypt]>=1.7.4
+PyJWT>=2.8.0
+bcrypt>=4.1.0
+email-validator>=2.0.0
 
 # ===== CORS Support =====
 # (included in fastapi, no separate package needed)

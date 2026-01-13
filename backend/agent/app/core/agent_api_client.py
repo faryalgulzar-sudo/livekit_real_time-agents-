@@ -65,3 +65,15 @@ class AgentAPIClient:
             return data.get("collected_data", {})
         except Exception as e:
             raise RuntimeError(f"Failed to get collected_data: {e}")
+
+    def query_knowledge(self, query: str, top_k: int = 3) -> Dict[str, Any]:
+        """
+        Query the knowledge base for relevant clinic information.
+        Returns top_k most relevant chunks with context ready for LLM.
+        """
+        payload = {
+            "tenant_id": self.tenant_id,
+            "query": query,
+            "top_k": top_k
+        }
+        return self._post("/v1/kb/query", payload)

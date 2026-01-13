@@ -7,18 +7,17 @@ WORKDIR /app
 COPY package.json yarn.lock* package-lock.json* ./
 
 # Install dependencies
-RUN if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
-    elif [ -f package-lock.json ]; then npm ci; \
-    else npm install; fi
+# Force npm install with legacy peer deps to avoid platform-specific dependency issues
+RUN rm -f yarn.lock && npm install --legacy-peer-deps
 
 # Copy source code
 COPY . .
 
 # Expose port
-EXPOSE 3001
+EXPOSE 3000
 
 # Set environment variable for port
-ENV PORT=3001
+ENV PORT=3000
 
 # Run in development mode
-CMD ["npm", "run", "dev", "--", "-p", "3001"]
+CMD ["npm", "run", "dev", "--", "-p", "3000"]

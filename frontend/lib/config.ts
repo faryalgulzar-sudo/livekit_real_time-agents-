@@ -1,7 +1,7 @@
 export const CONFIG = {
   API_URL:
     typeof window !== 'undefined' && window.location.hostname.includes('drap.ai')
-      ? '' // Use same-origin proxy
+      ? 'https://agent007.drap.ai' // Use full URL for production
       : 'http://localhost:8000',
   // For local development, use ws://localhost:7880
   // For production, use wss://livekit.drap.ai

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface VoicePanelProps {
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
@@ -26,6 +26,9 @@ export default function VoicePanel({
   const [volume, setVolume] = useState(80);
   const [micPermission, setMicPermission] = useState<boolean | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check microphone permissions on mount (client-side only)
   useEffect(() => {
@@ -75,6 +78,32 @@ export default function VoicePanel({
     const newVolume = parseInt(e.target.value);
     setVolume(newVolume);
     onVolumeChange(newVolume / 100);
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadedFile(file);
+    setIsUploading(true);
+
+    // TODO: Implement actual file upload to backend
+    // For now, just simulate upload
+    try {
+      console.log('Uploading file:', file.name);
+      // Simulate upload delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      alert(`File "${file.name}" uploaded successfully!`);
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Upload failed. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -139,6 +168,36 @@ export default function VoicePanel({
           <span>Disconnect</span>
         </button>
       </div>
+
+      {/* Upload Report/X-ray Button */}
+      {connectionStatus === 'connected' && (
+        <div className="mb-5">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*,.pdf,.jpg,.jpeg,.png,.dicom"
+            className="hidden"
+          />
+          <button
+            onClick={handleUploadClick}
+            disabled={isUploading}
+            className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl flex items-center justify-center gap-3 transition-all duration-300 shadow-lg hover:shadow-purple-500/40 hover:-translate-y-0.5 border border-purple-400/30"
+          >
+            <span className="text-2xl">{isUploading ? '⏳' : '📄'}</span>
+            <div className="flex flex-col items-start">
+              <span className="text-lg">{isUploading ? 'Uploading...' : 'Upload Report / X-ray'}</span>
+              <span className="text-xs text-purple-200 opacity-80">PDF, Images, DICOM supported</span>
+            </div>
+          </button>
+          {uploadedFile && !isUploading && (
+            <div className="mt-2 p-2 bg-green-900/30 border border-green-500/30 rounded-lg text-green-400 text-sm flex items-center gap-2">
+              <span>✅</span>
+              <span>Uploaded: {uploadedFile.name}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Volume Control */}
       <div className="flex items-center gap-4 p-4 bg-slate-900 rounded-lg mb-5">

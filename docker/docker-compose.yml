@@ -1,24 +1,38 @@
 services:
-  # FastAPI Backend
+  # FastAPI Backend (LiveKit Token API)
   fastapi:
     build:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: agent786-fastapi
-    working_dir: /app/backend/agent
+    working_dir: /app/backend/api
     environment:
-      - LIVEKIT_URL=${LIVEKIT_URL:-wss://livekit.drap.ai}
+      - LIVEKIT_URL=${LIVEKIT_URL:-ws://localhost:7880}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://dentist:dentist_pass@localhost:5432/dentist_ai}
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ../backend/api:/app/backend/api
       - ../backend/agent:/app/backend/agent
-      - ../config/.env.local:/app/config/.env.local
     restart: unless-stopped
     network_mode: host
+
+  # Database API Server
+  database-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: agent786-database-api
+    working_dir: /app/backend/agent
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://dentist:dentist_pass@localhost:5432/dentist_ai}
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+    volumes:
+      - ../backend/agent:/app/backend/agent
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - fastapi
 
   # LiveKit Agent Worker
   agent:
@@ -27,20 +41,23 @@ services:
       dockerfile: docker/Dockerfile
     container_name: agent786-agent
     working_dir: /app
+    runtime: nvidia
     environment:
-      - LIVEKIT_URL=${LIVEKIT_URL:-wss://livekit.drap.ai}
+      - LIVEKIT_URL=${LIVEKIT_URL:-ws://localhost:7880}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://dentist:dentist_pass@localhost:5432/dentist_ai}
-      - AGENT_API_BASE_URL=${AGENT_API_BASE_URL:-http://localhost:8000}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b}
+      - AGENT_API_BASE_URL=${AGENT_API_BASE_URL:-http://localhost:8001}
+      - AGENT_API_TIMEOUT=5
+      - AGENT_API_RETRIES=3
       - TENANT_ID=${TENANT_ID:-demo_clinic}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     command: python backend/agent/agent.py dev
     volumes:
       - ../backend/agent:/app/backend/agent
-      - ../config/.env.local:/app/config/.env.local
     depends_on:
-      - fastapi
+      - database-api
     restart: unless-stopped
     network_mode: host
 

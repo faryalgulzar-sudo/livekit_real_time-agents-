@@ -1,20 +1,26 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "default_language": "en",
   "states": {
     "start": "GREETING",
     "collecting": "COLLECTING",
     "confirming": "CONFIRMING",
+    "medical_history": "MEDICAL_HISTORY",
+    "document_upload": "DOCUMENT_UPLOAD",
+    "document_questions": "DOCUMENT_QUESTIONS",
+    "rag_mode": "RAG_MODE",
     "done": "DONE"
+  },
+
+  "greeting": {
+    "prompt_en": "Hello! Welcome to our clinic. How are you doing today?",
+    "prompt_ur": "Assalam o Alaikum! Hamari clinic mein khush aamdeed. Aap kaise hain aaj?"
   },
 
   "required_fields_order": [
     "full_name",
     "phone",
-    "new_or_existing",
-    "reason_for_visit",
-    "preferred_time",
-    "consent"
+    "purpose_of_call"
   ],
 
   "fields": [
@@ -22,160 +28,86 @@
       "key": "full_name",
       "type": "string",
       "required": true,
-      "prompt_en": "May I have your full name, please?",
-      "prompt_ur": "Aap ka full name kya hai?",
-      "validation": {
-        "min_length": 2,
-        "max_length": 80
-      }
+      "prompt_en": "This information is necessary to proceed. May I have your full name, please?",
+      "prompt_ur": "Aagay barhne ke liye yeh information zaroori hai. Aap ka full name kya hai?"
     },
     {
       "key": "phone",
       "type": "string",
       "required": true,
       "prompt_en": "What is your phone number?",
-      "prompt_ur": "Aap ka phone number kya hai?",
-      "validation": {
-        "min_length": 7,
-        "max_length": 20,
-        "regex": "^[0-9+()\\-\\s]{7,20}$"
-      }
+      "prompt_ur": "Aap ka phone number kya hai?"
     },
     {
-      "key": "new_or_existing",
-      "type": "enum",
-      "required": true,
-      "prompt_en": "Are you a new patient or an existing patient?",
-      "prompt_ur": "Aap new patient hain ya existing?",
-      "options": [
-        { "value": "new", "label_en": "New patient" },
-        { "value": "existing", "label_en": "Existing patient" }
-      ]
-    },
-    {
-      "key": "reason_for_visit",
-      "type": "enum_or_text",
-      "required": true,
-      "prompt_en": "What is the reason for your visit? For example: pain, cleaning, checkup, braces, or other.",
-      "prompt_ur": "Aap kis reason se aana chahte hain? (pain/cleaning/checkup/braces/other)",
-      "options": [
-        { "value": "pain", "label_en": "Tooth pain / toothache" },
-        { "value": "cleaning", "label_en": "Cleaning / scaling" },
-        { "value": "checkup", "label_en": "Routine checkup" },
-        { "value": "braces", "label_en": "Braces / orthodontics" },
-        { "value": "wisdom_tooth", "label_en": "Wisdom tooth" },
-        { "value": "filling", "label_en": "Filling / cavity" },
-        { "value": "other", "label_en": "Other" }
-      ],
-      "keywords_map": {
-        "pain": ["pain", "toothache", "ache", "dard"],
-        "cleaning": ["cleaning", "scaling", "polish"],
-        "checkup": ["checkup", "routine", "inspection"],
-        "braces": ["braces", "aligner", "orthodontic"],
-        "wisdom_tooth": ["wisdom", "third molar"],
-        "filling": ["filling", "cavity", "caries"]
-      }
-    },
-    {
-      "key": "preferred_time",
+      "key": "purpose_of_call",
       "type": "string",
       "required": true,
-      "prompt_en": "What day and time works best for you? For example: Monday evening or tomorrow morning.",
-      "prompt_ur": "Aap ko kaunsa day/time suit karta hai? (e.g., Monday evening)",
-      "validation": {
-        "min_length": 3,
-        "max_length": 120
-      }
-    },
-    {
-      "key": "consent",
-      "type": "boolean",
-      "required": true,
-      "prompt_en": "Do you consent to share your details for booking and follow-up? Please say yes or no.",
-      "prompt_ur": "Kya aap booking aur follow-up ke liye apni info share karne ki consent dete hain? (Yes/No)",
-      "truthy": ["yes", "y", "haan", "han", "okay", "ok"],
-      "falsy": ["no", "n", "nahin", "nahi"]
+      "prompt_en": "What is your purpose for calling today?",
+      "prompt_ur": "Aaj aap kis purpose se call kar rahe hain?"
     }
   ],
 
+  "medical_history_prompt": {
+    "prompt_en": "I will show you some options on the screen. Do you have any medical history or previous reports to share? Please say yes or no.",
+    "prompt_ur": "Main aapko screen par kuch options dikhaonga. Kya aapki koi medical history ya previous reports hain share karne ke liye? Yes ya No bolein."
+  },
+
+  "no_medical_history_response": {
+    "prompt_en": "Okay, no problem. Let me proceed with your request.",
+    "prompt_ur": "Theek hai, koi masla nahi. Main aapki request ke saath aagay barhta hun."
+  },
+
+  "upload_prompt": {
+    "prompt_en": "Please upload your medical document using the upload button on your screen. I'll wait for you.",
+    "prompt_ur": "Please apna medical document screen par upload button se upload karein. Main aapka intezaar karunga."
+  },
+
   "conditional_rules": [
     {
-      "id": "pain_followups",
-      "when": {
-        "any_of": [
-          { "field_equals": { "field": "reason_for_visit", "value": "pain" } },
-          { "field_text_contains_any": { "field": "reason_for_visit", "values": ["pain", "toothache", "ache", "dard"] } }
-        ]
-      },
-      "then_fields_order": ["pain_level", "pain_duration", "urgent_flags"],
-      "fields": [
-        {
-          "key": "pain_level",
-          "type": "number",
-          "required": false,
-          "prompt_en": "On a scale from 0 to 10, how strong is the pain?",
-          "prompt_ur": "0 se 10 tak pain kitna hai?",
-          "validation": { "min": 0, "max": 10 }
-        },
-        {
-          "key": "pain_duration",
-          "type": "string",
-          "required": false,
-          "prompt_en": "How long have you had this pain? For example: since yesterday, 3 days, 1 week.",
-          "prompt_ur": "Ye pain kab se hai? (e.g., kal se / 3 din / 1 week)",
-          "validation": { "min_length": 2, "max_length": 120 }
-        },
-        {
-          "key": "urgent_flags",
-          "type": "boolean_or_text",
-          "required": false,
-          "prompt_en": "Do you have swelling, fever, heavy bleeding, or trouble breathing? Please say yes or no.",
-          "prompt_ur": "Kya swelling, fever, zyada bleeding ya saans ka masla hai? (Yes/No)",
-          "keywords_urgent": ["swelling", "fever", "bleeding", "breathing", "infection", "soojan", "bukhar", "khoon", "saans"]
-        }
-      ]
-    },
-    {
-      "id": "file_uploaded_followups",
+      "id": "document_uploaded_questions",
       "when": {
         "field_equals": { "field": "files_uploaded", "value": true }
       },
-      "then_fields_order": ["file_type", "file_date", "file_summary_patient"],
+      "then_fields_order": ["document_type", "document_date", "document_findings"],
       "fields": [
         {
-          "key": "file_type",
+          "key": "document_type",
           "type": "enum",
-          "required": false,
-          "prompt_en": "Thanks — is the uploaded file an X-ray or a medical report?",
-          "prompt_ur": "Shukriya — jo file upload hui hai wo X-ray hai ya report?",
+          "required": true,
+          "prompt_en": "Thank you for uploading. Is this document an X-ray, a lab report, or a medical prescription?",
+          "prompt_ur": "Upload karne ka shukriya. Yeh document X-ray hai, lab report hai, ya medical prescription?",
           "options": [
             { "value": "xray", "label_en": "X-ray" },
-            { "value": "report", "label_en": "Report" },
+            { "value": "lab_report", "label_en": "Lab Report" },
+            { "value": "prescription", "label_en": "Medical Prescription" },
             { "value": "other", "label_en": "Other" }
           ]
         },
         {
-          "key": "file_date",
+          "key": "document_date",
           "type": "string",
-          "required": false,
-          "prompt_en": "What is the date of this file? If you’re not sure, an approximate date is fine.",
-          "prompt_ur": "Ye file kis date ki hai? Approx bhi chalega.",
-          "validation": { "min_length": 2, "max_length": 40 }
+          "required": true,
+          "prompt_en": "When was this document created? You can give an approximate date.",
+          "prompt_ur": "Yeh document kab bana tha? Approximate date bata dein."
         },
         {
-          "key": "file_summary_patient",
+          "key": "document_findings",
           "type": "string",
-          "required": false,
-          "prompt_en": "In one or two lines, what did the doctor say about this report or X-ray?",
-          "prompt_ur": "1-2 lines me bata dein doctor ne is report/X-ray ke baare me kya kaha?",
-          "validation": { "min_length": 2, "max_length": 300 }
+          "required": true,
+          "prompt_en": "In a few words, what did the doctor say about this document or what were the findings?",
+          "prompt_ur": "Chand alfaaz mein bataein, doctor ne is document ke baare mein kya kaha ya kya findings theen?"
         }
       ]
     }
   ],
 
   "confirmation": {
-    "prompt_en": "Let me confirm: Name: {full_name}, Phone: {phone}, Patient type: {new_or_existing}, Reason: {reason_for_visit}, Preferred time: {preferred_time}. Is this correct?",
-    "prompt_ur": "Confirm kar raha hun: Name: {full_name}, Phone: {phone}, Type: {new_or_existing}, Reason: {reason_for_visit}, Time: {preferred_time}. Theek hai?"
+    "prompt_en": "Let me confirm your details: Name: {full_name}, Phone: {phone}, Purpose: {purpose_of_call}. Is this correct?",
+    "prompt_ur": "Aapki details confirm karta hun: Name: {full_name}, Phone: {phone}, Purpose: {purpose_of_call}. Theek hai?"
+  },
+
+  "rag_mode_prompt": {
+    "prompt_en": "Thank you! Your information has been saved. Now you can ask me any questions about our clinic services, timings, or any other information you need.",
+    "prompt_ur": "Shukriya! Aapki information save ho gayi hai. Ab aap mujh se clinic services, timings, ya koi bhi information ke baare mein sawal pooch sakte hain."
   }
 }

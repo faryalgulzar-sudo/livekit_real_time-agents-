@@ -1,6 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.sessions import router as sessions_router
+from app.routes.knowledge import router as knowledge_router
+from app.routes.kb_ingest import router as kb_ingest_router
+from app.routes.crm import router as crm_router
+from app.routes.auth import router as auth_router
+from app.routes.widget import router as widget_router
 from app.core.db import engine
 from app.core.models import Base
 import os
@@ -38,6 +43,11 @@ def on_startup():
     Base.metadata.create_all(bind=engine)
 
 app.include_router(sessions_router)
+app.include_router(knowledge_router)
+app.include_router(kb_ingest_router)
+app.include_router(crm_router)
+app.include_router(auth_router)
+app.include_router(widget_router)
 
 @app.get("/health")
 def health():
@@ -50,7 +60,8 @@ async def generate_token(request: TokenRequest):
         # Get credentials from environment
         api_key = os.getenv("LIVEKIT_API_KEY")
         api_secret = os.getenv("LIVEKIT_API_SECRET")
-        livekit_url = os.getenv("LIVEKIT_URL", "wss://livekit.drap.ai")
+        # Use public URL for frontend (browser)
+        livekit_url = os.getenv("LIVEKIT_PUBLIC_URL", "wss://livekit.drap.ai")
 
         if not api_key or not api_secret:
             raise HTTPException(status_code=500, detail="LiveKit credentials not configured")
