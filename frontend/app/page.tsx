@@ -17,6 +17,7 @@ export default function Home() {
     transcripts,
     chatMessages,
     sendChatMessage,
+    latencyMetrics,
     connect,
     disconnect,
     toggleSpeaking,
@@ -99,6 +100,7 @@ export default function Home() {
             userId={userId}
             isSpeaking={isSpeaking}
             audioLevel={audioLevel}
+            latencyMetrics={latencyMetrics}
             onConnect={connect}
             onDisconnect={disconnect}
             onToggleSpeaking={toggleSpeaking}

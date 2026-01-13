@@ -12,6 +12,13 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
+export interface LatencyMetrics {
+  stt: number | null;
+  llm: number | null;
+  tts: number | null;
+  total: number | null;
+}
+
 interface UseLiveKitReturn {
   // Connection state
   connectionStatus: ConnectionStatus;
@@ -30,6 +37,9 @@ interface UseLiveKitReturn {
   // Chat messages
   chatMessages: ChatMessage[];
   sendChatMessage: (message: string) => Promise<void>;
+
+  // Latency metrics
+  latencyMetrics: LatencyMetrics;
 
   // Actions
   connect: () => Promise<void>;
@@ -53,6 +63,12 @@ export function useLiveKit(): UseLiveKitReturn {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [currentVolume, setCurrentVolume] = useState(0.8);
+  const [latencyMetrics, setLatencyMetrics] = useState<LatencyMetrics>({
+    stt: null,
+    llm: null,
+    tts: null,
+    total: null,
+  });
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -121,9 +137,19 @@ export function useLiveKit(): UseLiveKitReturn {
       const updateLevel = () => {
         if (!analyserRef.current) return;
 
-        analyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b) / bufferLength;
-        const percentage = Math.min(100, (average / 128) * 100);
+        // Use time-domain data for more accurate voice level detection
+        analyser.getByteTimeDomainData(dataArray);
+
+        // Calculate RMS (Root Mean Square) for accurate volume
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const normalized = (dataArray[i] - 128) / 128; // Normalize to -1 to 1
+          sum += normalized * normalized;
+        }
+        const rms = Math.sqrt(sum / bufferLength);
+
+        // Convert to percentage (0-100) with better sensitivity
+        const percentage = Math.min(100, rms * 200);
 
         setAudioLevel(percentage);
         animationFrameRef.current = requestAnimationFrame(updateLevel);
@@ -189,7 +215,7 @@ export function useLiveKit(): UseLiveKitReturn {
       track.detach().forEach((element) => element.remove());
     });
 
-    // Data received (for transcripts, chat messages, and agent status)
+    // Data received (for transcripts, chat messages, agent status, and latency)
     room.on(LiveKit.RoomEvent.DataReceived, (payload, participant) => {
       try {
         const message = new TextDecoder().decode(payload);
@@ -209,6 +235,15 @@ export function useLiveKit(): UseLiveKitReturn {
             } else if (data.status === 'ready') {
               addTranscript('System', `✅ ${data.message || 'Agent ready!'}`);
             }
+          } else if (data.type === 'latency') {
+            // Handle latency metrics from agent
+            console.log('⏱️ [LATENCY] Received metrics:', data);
+            setLatencyMetrics({
+              stt: data.stt_ms || null,
+              llm: data.llm_ms || null,
+              tts: data.tts_ms || null,
+              total: data.total_ms || null,
+            });
           }
         } catch {
           // Not JSON - treat as plain text chat message from agent
@@ -452,6 +487,7 @@ export function useLiveKit(): UseLiveKitReturn {
     transcripts,
     chatMessages,
     sendChatMessage,
+    latencyMetrics,
     connect,
     disconnect,
     toggleSpeaking,

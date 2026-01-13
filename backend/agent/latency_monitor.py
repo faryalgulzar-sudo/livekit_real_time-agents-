@@ -60,11 +60,12 @@ class ConversationTurn:
 class LatencyMonitor:
     """Monitor and track latency for voice agent conversations"""
 
-    def __init__(self, verbose: bool = True):
+    def __init__(self, verbose: bool = True, on_turn_complete=None):
         self.verbose = verbose
         self.turns: List[ConversationTurn] = []
         self.current_turn: Optional[ConversationTurn] = None
         self.turn_counter = 0
+        self.on_turn_complete = on_turn_complete  # Callback for when turn completes
 
     def _start_new_turn(self):
         """Start a new conversation turn"""
@@ -137,8 +138,16 @@ class LatencyMonitor:
                 print(f"   └─ TTS: {tts:.0f}ms ({tts/total_lat*100:.1f}%)")
 
             # Save completed turn
-            self.turns.append(self.current_turn)
+            completed_turn = self.current_turn
+            self.turns.append(completed_turn)
             self.current_turn = None
+
+            # Call callback with turn data
+            if self.on_turn_complete and completed_turn:
+                try:
+                    self.on_turn_complete(completed_turn)
+                except Exception as e:
+                    print(f"⚠️ [LATENCY] Callback error: {e}")
 
     def on_agent_started_speaking(self):
         """Agent started speaking (audio playback)"""

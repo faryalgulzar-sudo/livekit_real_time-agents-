@@ -2,11 +2,19 @@
 
 import { useState, useEffect, useRef } from 'react';
 
+interface LatencyMetrics {
+  stt: number | null;
+  llm: number | null;
+  tts: number | null;
+  total: number | null;
+}
+
 interface VoicePanelProps {
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
   userId: string;
   isSpeaking: boolean;
   audioLevel: number;
+  latencyMetrics: LatencyMetrics;
   onConnect: () => Promise<void>;
   onDisconnect: () => Promise<void>;
   onToggleSpeaking: () => Promise<void>;
@@ -18,6 +26,7 @@ export default function VoicePanel({
   userId,
   isSpeaking,
   audioLevel,
+  latencyMetrics,
   onConnect,
   onDisconnect,
   onToggleSpeaking,
@@ -216,7 +225,7 @@ export default function VoicePanel({
       </div>
 
       {/* Audio Info */}
-      <div className="flex flex-col gap-3 p-4 bg-slate-900 rounded-lg">
+      <div className="flex flex-col gap-3 p-4 bg-slate-900 rounded-lg mb-5">
         <div className="flex items-center gap-3">
           <span className="font-semibold min-w-[100px] text-slate-200">Microphone:</span>
           <span
@@ -243,8 +252,47 @@ export default function VoicePanel({
               style={{ width: `${audioLevel}%` }}
             />
           </div>
+          <span className="text-xs text-slate-400 min-w-[35px] text-right">
+            {audioLevel.toFixed(0)}%
+          </span>
         </div>
       </div>
+
+      {/* Latency Metrics */}
+      {connectionStatus === 'connected' && latencyMetrics.total !== null && (
+        <div className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg border border-slate-700">
+          <h3 className="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
+            <span>⏱️</span>
+            <span>Response Latency</span>
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col">
+              <span className="text-xs text-slate-400">STT (Speech-to-Text)</span>
+              <span className="text-lg font-bold text-green-400">
+                {latencyMetrics.stt !== null ? `${latencyMetrics.stt.toFixed(0)}ms` : '-'}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-slate-400">LLM (AI Processing)</span>
+              <span className="text-lg font-bold text-blue-400">
+                {latencyMetrics.llm !== null ? `${latencyMetrics.llm.toFixed(0)}ms` : '-'}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-slate-400">TTS (Text-to-Speech)</span>
+              <span className="text-lg font-bold text-purple-400">
+                {latencyMetrics.tts !== null ? `${latencyMetrics.tts.toFixed(0)}ms` : '-'}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-slate-400">Total Response</span>
+              <span className="text-lg font-bold text-indigo-400">
+                {latencyMetrics.total !== null ? `${latencyMetrics.total.toFixed(0)}ms` : '-'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Microphone Permission Warning */}
       {micPermission === false && (

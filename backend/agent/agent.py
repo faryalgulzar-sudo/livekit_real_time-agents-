@@ -599,11 +599,33 @@ async def send_status(ctx: JobContext, status: str, message: str = ""):
         logger.warning(f"⚠️ [STATUS] Failed to send status: {e}")
 
 
+async def send_latency_metrics(ctx: JobContext, turn_data):
+    """Send latency metrics to frontend via data channel"""
+    import json
+    try:
+        data = json.dumps({
+            "type": "latency",
+            "stt_ms": turn_data.stt_latency_ms,
+            "llm_ms": turn_data.llm_latency_ms,
+            "tts_ms": turn_data.tts_latency_ms,
+            "total_ms": turn_data.total_latency_ms,
+        })
+        await ctx.room.local_participant.publish_data(data.encode(), reliable=True)
+        logger.debug(f"📊 [LATENCY] Sent metrics: STT={turn_data.stt_latency_ms:.0f}ms, LLM={turn_data.llm_latency_ms:.0f}ms, TTS={turn_data.tts_latency_ms:.0f}ms")
+    except Exception as e:
+        logger.warning(f"⚠️ [LATENCY] Failed to send metrics: {e}")
+
+
 async def entrypoint(ctx: JobContext):
     ctx.log_context_fields = {"room": ctx.room.name}
 
-    # Initialize latency monitor
-    latency_monitor = LatencyMonitor(verbose=True)
+    # Callback to send latency metrics to frontend
+    def on_latency_turn_complete(turn_data):
+        """Send latency data to frontend when turn completes"""
+        asyncio.create_task(send_latency_metrics(ctx, turn_data))
+
+    # Initialize latency monitor with callback
+    latency_monitor = LatencyMonitor(verbose=True, on_turn_complete=on_latency_turn_complete)
 
     # ✅ Create DB session client (per room/job)
     tenant_id = os.getenv("TENANT_ID", "demo_clinic")
