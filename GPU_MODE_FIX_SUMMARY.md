@@ -14,6 +14,7 @@ All services are now running with full GPU acceleration enabled!
 
 ### 2. Fixed Build Issues
 - **Dockerfile**: Added `DEBIAN_FRONTEND=noninteractive` and `TZ=UTC` to prevent timezone prompts
+- **Dockerfile**: Added `libcublas-12-1` package for Faster Whisper GPU support
 - **Frontend**: Switched from yarn to npm with `--legacy-peer-deps` flag
 - **Database**: Configured `network_mode: host` for connectivity
 - **Compose**: Configured `runtime: nvidia` for proper GPU access
@@ -26,9 +27,9 @@ The **latency monitor requires NO changes** for GPU mode. It's a pure timing uti
 ```bash
 $ docker compose -f docker/docker-compose.yml ps
 NAME                    STATUS
-agent786-agent          Up (with GPU access ✅)
+agent786-agent          Up (GPU + STT working ✅)
 agent786-database-api   Up
-agent786-fastapi        Up (has import errors - needs fix)
+agent786-fastapi        Up (Fixed ✅)
 ```
 
 ### GPU Verification
@@ -74,5 +75,16 @@ docker logs agent786-agent --follow
 ✅ GPU accessible in agent container
 ✅ Agent service running with GPU support
 ✅ Latency monitor ready (no changes needed)
+✅ FastAPI token generation endpoint fixed
+✅ cuBLAS library installed for Faster Whisper GPU
+✅ STT (Speech-to-Text) now working with GPU acceleration
 
 **Your system is now fully configured for GPU-accelerated voice agent processing!** 🚀
+
+### Issue Fixed: Audio Level Showing 0
+
+**Problem**: User could connect and get greeting, but audio level stayed at 0 and STT wasn't transcribing speech.
+
+**Root Cause**: Missing `libcublas.so.12` library needed by Faster Whisper for GPU acceleration. The CUDA runtime image only includes minimal libraries.
+
+**Solution**: Added `libcublas-12-1` package to Dockerfile. STT now successfully transcribes user speech on GPU.
