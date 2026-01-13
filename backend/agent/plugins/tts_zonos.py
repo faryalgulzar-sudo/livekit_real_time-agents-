@@ -8,8 +8,11 @@ import io
 import logging
 from livekit.agents.tts import TTS, ChunkedStream, TTSCapabilities
 from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS
-from zonos.model import Zonos
-from zonos.conditioning import make_cond_dict
+
+# Don't import Zonos at module level - it downloads models from HuggingFace
+# Import only when needed to avoid startup delays
+# from zonos.model import Zonos
+# from zonos.conditioning import make_cond_dict
 
 logger = logging.getLogger("tts_zonos")
 
@@ -44,6 +47,9 @@ class ZonosTTS(TTS):
     def _load_model(self):
         """Lazy load the model on first use"""
         if self._model is None:
+            # Import Zonos only when actually needed (lazy import)
+            from zonos.model import Zonos
+
             logger.info(f"🔥 [Zonos] Loading model {self._model_name}...")
             self._model = Zonos.from_pretrained(self._model_name, device=self._device)
             logger.info("✅ [Zonos] Model loaded successfully")
@@ -91,6 +97,7 @@ class ZonosChunkedStream(ChunkedStream):
         """Generate speech and emit audio frames"""
         try:
             import uuid
+            from zonos.conditioning import make_cond_dict
 
             logger.info(f"🎵 [Zonos] Generating speech for: {self._input_text[:50]}...")
 

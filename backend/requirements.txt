@@ -13,7 +13,7 @@ ctranslate2>=4.0.0  # GPU support for faster-whisper
 
 # ===== Text-to-Speech (TTS) =====
 edge-tts>=6.1.0  # Backup TTS
-git+https://github.com/Zyphra/Zonos.git  # Zyphra Zonos TTS (primary, from source)
+# Zonos TTS installed separately in Dockerfile (editable install required)
 pydub>=0.25.1
 torchaudio>=2.0.0  # Required by Zonos
 

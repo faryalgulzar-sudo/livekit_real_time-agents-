@@ -53,9 +53,11 @@ services:
       - TENANT_ID=${TENANT_ID:-demo_clinic}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - HF_HOME=/app/.cache/huggingface  # Hugging Face cache location
     command: python backend/agent/agent.py dev
     volumes:
       - ../backend/agent:/app/backend/agent
+      - huggingface-cache:/app/.cache/huggingface  # Persistent cache for models
     depends_on:
       - database-api
     restart: unless-stopped
@@ -80,6 +82,10 @@ services:
     networks:
       - agent786-network
     restart: unless-stopped
+
+volumes:
+  huggingface-cache:
+    driver: local
 
 networks:
   agent786-network:

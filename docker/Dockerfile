@@ -30,6 +30,17 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip
 RUN python3 -m pip install --upgrade pip
 
+# Clone and install Zonos TTS from source (needs editable install)
+RUN git clone https://github.com/Zyphra/Zonos.git /tmp/zonos && \
+    cd /tmp/zonos && \
+    pip install --no-cache-dir -e . && \
+    cd / && \
+    rm -rf /tmp/zonos/.git
+
+# Pre-download Zonos models during build to avoid first-run delays
+RUN python3 -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='Zyphra/Zonos-v0.1-transformer', cache_dir='/app/.cache/huggingface')" && \
+    echo "✅ Zonos models pre-downloaded"
+
 # Copy requirements and install Python dependencies
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

@@ -24,8 +24,8 @@ from livekit.plugins import silero, openai
 
 # import your custom plugins
 from plugins.stt_faster_whisper import create as create_stt  # Using local Faster Whisper
-# from plugins.tts_zonos import create as create_tts  # Zyphra Zonos TTS (TODO: fix installation)
-from plugins.tts_edge import create as create_tts  # Edge TTS (current)
+from plugins.tts_zonos import create as create_tts  # Zyphra Zonos TTS (high quality)
+# from plugins.tts_edge import create as create_tts  # Edge TTS (backup)
 from latency_monitor import LatencyMonitor  # Latency tracking
 
 # ✅ DB API client (your new file)
