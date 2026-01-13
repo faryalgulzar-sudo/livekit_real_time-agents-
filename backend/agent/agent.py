@@ -691,6 +691,13 @@ async def entrypoint(ctx: JobContext):
 
     # Note: transcript handler moved after session.start() for proper registration
 
+    async def _say_with_latency_tracking(text: str, session, is_llm_response: bool = False):
+        """Helper to track latency when speaking"""
+        if is_llm_response:
+            # Track as LLM response for latency monitoring
+            latency_monitor.on_llm_response_received(text)
+        await session.say(text, allow_interruptions=True)
+
     async def _process_and_speak_intake(user_text, ctx, api_client, intake_schema, session):
         """
         STRICT 3-PART INTAKE FLOW:
@@ -718,7 +725,7 @@ async def entrypoint(ctx: JobContext):
                 # Friendly acknowledgment + question
                 name_msg = "Great to hear! This basic information is required to proceed. May I have your full name please?"
                 logger.info(f"🎤 [PART1] Asking for name: {name_msg}")
-                await session.say(name_msg, allow_interruptions=True)
+                await _say_with_latency_tracking(name_msg, session, is_llm_response=True)
                 return
 
             # Step 2: After NAME -> Validate and Ask for PHONE
@@ -733,7 +740,7 @@ async def entrypoint(ctx: JobContext):
                     ctx.proc.userdata["name_repair_attempts"] = repair_attempts + 1
                     repair_msg = get_repair_message("name", unclear_reason, repair_attempts + 1)
                     logger.info(f"🔧 [REPAIR] Name unclear ({unclear_reason}), attempt {repair_attempts + 1}/3: {repair_msg}")
-                    await session.say(repair_msg, allow_interruptions=True)
+                    await _say_with_latency_tracking(repair_msg, session, is_llm_response=True)
                     return
 
                 # Reset repair counter on successful STT
@@ -759,7 +766,7 @@ async def entrypoint(ctx: JobContext):
                         elif reason == "too_short":
                             retry_msg = "Could you please tell me your complete name?"
                         logger.info(f"⚠️ [VALIDATION] Name invalid ({reason}), retry {name_retries + 1}/2")
-                        await session.say(retry_msg, allow_interruptions=True)
+                        await _say_with_latency_tracking(retry_msg, session, is_llm_response=True)
                         return
 
                 # Valid name or max retries reached - save and proceed
@@ -772,7 +779,7 @@ async def entrypoint(ctx: JobContext):
                 # Friendly + question
                 phone_msg = f"Thank you {name_value}. What is your contact number?"
                 logger.info(f"🎤 [PART1] Asking for phone: {phone_msg}")
-                await session.say(phone_msg, allow_interruptions=True)
+                await _say_with_latency_tracking(phone_msg, session, is_llm_response=True)
                 return
 
             # Step 3: After PHONE -> Validate and Go to PART 2 (Medical History)
@@ -787,7 +794,7 @@ async def entrypoint(ctx: JobContext):
                     ctx.proc.userdata["phone_repair_attempts"] = repair_attempts + 1
                     repair_msg = get_repair_message("phone", unclear_reason, repair_attempts + 1)
                     logger.info(f"🔧 [REPAIR] Phone unclear ({unclear_reason}), attempt {repair_attempts + 1}/3: {repair_msg}")
-                    await session.say(repair_msg, allow_interruptions=True)
+                    await _say_with_latency_tracking(repair_msg, session, is_llm_response=True)
                     return
 
                 # Reset repair counter on successful STT
@@ -811,7 +818,7 @@ async def entrypoint(ctx: JobContext):
                         if reason == "too_short":
                             retry_msg = "That phone number seems incomplete. Please tell me your full 10 or 11 digit number."
                         logger.info(f"⚠️ [VALIDATION] Phone invalid ({reason}), retry {phone_retries + 1}/2")
-                        await session.say(retry_msg, allow_interruptions=True)
+                        await _say_with_latency_tracking(retry_msg, session, is_llm_response=True)
                         return
 
                 # Valid phone or max retries reached - save and proceed
@@ -836,7 +843,7 @@ async def entrypoint(ctx: JobContext):
 
                 confirm_msg = f"Let me confirm: Your name is {saved_name} and phone number is {phone_value}. Is that correct? Please say yes or no."
                 logger.info(f"🎤 [CONFIRM] Asking confirmation: {confirm_msg}")
-                await session.say(confirm_msg, allow_interruptions=True)
+                await _say_with_latency_tracking(confirm_msg, session, is_llm_response=True)
                 return
 
             # ==========================================
@@ -856,7 +863,7 @@ async def entrypoint(ctx: JobContext):
 
                     proceed_msg = "Perfect! Do you have any medical history or previous reports to share? Please say yes or no."
                     logger.info(f"🎤 [PART2] Asking medical history: {proceed_msg}")
-                    await session.say(proceed_msg, allow_interruptions=True)
+                    await _say_with_latency_tracking(proceed_msg, session, is_llm_response=True)
                     return
 
                 elif is_denied:
@@ -867,7 +874,7 @@ async def entrypoint(ctx: JobContext):
 
                     correction_msg = "No problem. What would you like to correct - your name or phone number?"
                     logger.info(f"🎤 [CONFIRM] Asking what to correct: {correction_msg}")
-                    await session.say(correction_msg, allow_interruptions=True)
+                    await _say_with_latency_tracking(correction_msg, session, is_llm_response=True)
                     return
 
                 else:
@@ -904,7 +911,7 @@ async def entrypoint(ctx: JobContext):
 
                 else:
                     # Unclear - ask again
-                    await session.say("Please tell me what to correct - say 'name' or 'phone number'.", allow_interruptions=True)
+                    await _say_with_latency_tracking("Please tell me what to correct - say 'name' or 'phone number'.", session, is_llm_response=True)
                     return
 
             # ==========================================
@@ -927,7 +934,7 @@ async def entrypoint(ctx: JobContext):
                     upload_msg = intake_schema.get("upload_prompt", {}).get("prompt_en",
                         "Please upload your medical document using the upload button on your screen. I'll wait for you.")
                     logger.info(f"🎤 [PART2] Asking for upload: {upload_msg}")
-                    await session.say(upload_msg, allow_interruptions=True)
+                    await _say_with_latency_tracking(upload_msg, session, is_llm_response=True)
                 else:
                     # No medical history -> Go to PART 3 (RAG mode)
                     ctx.proc.userdata["intake_state"] = "rag"
@@ -947,7 +954,7 @@ async def entrypoint(ctx: JobContext):
                     rag_msg = intake_schema.get("rag_mode_prompt", {}).get("prompt_en",
                         "Thank you! Your information has been saved. Now you can ask me any questions about our clinic services.")
                     logger.info(f"✅ [PART2->PART3] No medical history - switching to RAG mode")
-                    await session.say(f"{no_history_msg} {rag_msg}", allow_interruptions=True)
+                    await _say_with_latency_tracking(f"{no_history_msg} {rag_msg}", session, is_llm_response=True)
                 return
 
             # Waiting for document upload - user says something after upload
@@ -973,7 +980,7 @@ async def entrypoint(ctx: JobContext):
                         ctx.proc.userdata["rag_context"] = ""
 
                     skip_msg = "No problem! Your information has been saved. Now you can ask me any questions about our clinic services."
-                    await session.say(skip_msg, allow_interruptions=True)
+                    await _say_with_latency_tracking(skip_msg, session, is_llm_response=True)
                     return
 
                 # Check if user uploaded and confirmed
@@ -985,10 +992,10 @@ async def entrypoint(ctx: JobContext):
 
                     doc_type_msg = "Thank you for uploading. Is this document an X-ray, a lab report, or a medical prescription?"
                     logger.info(f"🎤 [PART2] Asking document type: {doc_type_msg}")
-                    await session.say(doc_type_msg, allow_interruptions=True)
+                    await _say_with_latency_tracking(doc_type_msg, session, is_llm_response=True)
                 else:
                     # Remind user
-                    await session.say("Please upload your document and say 'done' when ready. Or say 'skip' if you don't have any.", allow_interruptions=True)
+                    await _say_with_latency_tracking("Please upload your document and say 'done' when ready. Or say 'skip' if you don't have any.", session, is_llm_response=True)
                 return
 
             # Document questions flow
@@ -999,7 +1006,7 @@ async def entrypoint(ctx: JobContext):
 
                     date_msg = "When was this document created? You can give an approximate date."
                     logger.info(f"🎤 [PART2] Asking document date: {date_msg}")
-                    await session.say(date_msg, allow_interruptions=True)
+                    await _say_with_latency_tracking(date_msg, session, is_llm_response=True)
                     return
 
                 elif current_key == "document_date":
@@ -1008,7 +1015,7 @@ async def entrypoint(ctx: JobContext):
 
                     findings_msg = "In a few words, what did the doctor say about this document or what were the findings?"
                     logger.info(f"🎤 [PART2] Asking document findings: {findings_msg}")
-                    await session.say(findings_msg, allow_interruptions=True)
+                    await _say_with_latency_tracking(findings_msg, session, is_llm_response=True)
                     return
 
                 elif current_key == "document_findings":
@@ -1031,7 +1038,7 @@ async def entrypoint(ctx: JobContext):
                     rag_msg = intake_schema.get("rag_mode_prompt", {}).get("prompt_en",
                         "Thank you! Your information has been saved. Now you can ask me any questions about our clinic services.")
                     logger.info(f"✅ [PART2->PART3] Document questions complete - switching to RAG mode")
-                    await session.say(rag_msg, allow_interruptions=True)
+                    await _say_with_latency_tracking(rag_msg, session, is_llm_response=True)
                     return
 
             # ==========================================
@@ -1367,11 +1374,11 @@ Be helpful and conversational:
                     backchannel = backchannel.rstrip('.') + f" {first_name}."
                 mark_backchannel_used(turn_number)
                 logger.info(f"🗣️ [BACKCHANNEL] Adding: {backchannel}")
-                await session.say(backchannel, allow_interruptions=True)
+                await _say_with_latency_tracking(backchannel, session, is_llm_response=True)
                 await asyncio.sleep(0.3)  # Small pause after backchannel
 
             # Speak the response
-            await session.say(reply, allow_interruptions=True)
+            await _say_with_latency_tracking(reply, session, is_llm_response=True)
 
         except Exception as e:
             logger.error(f"❌ [RAG] Error: {e}")
@@ -1384,6 +1391,9 @@ Be helpful and conversational:
         if ev.is_final and ev.transcript.strip():
             transcript_text = ev.transcript.strip()
             logger.info(f"✅ [STT] Final Transcript: {transcript_text}")
+
+            # Track STT completion for latency
+            latency_monitor.on_transcript_received(transcript_text)
 
             # Save to DB
             try:
@@ -1410,7 +1420,7 @@ Be helpful and conversational:
     # ✅ GREETING: Agent speaks first when session starts
     greeting_message = intake_schema.get("greeting", {}).get("prompt_en", "Hello! Welcome to our clinic. How are you doing today?")
     logger.info(f"🎤 [GREETING] Saying: {greeting_message}")
-    await session.say(greeting_message, allow_interruptions=True)
+    await _say_with_latency_tracking(greeting_message, session, is_llm_response=True)
 
     # ✅ ADD CHAT MESSAGE HANDLER (parallel to voice)
     @ctx.room.on("data_received")
