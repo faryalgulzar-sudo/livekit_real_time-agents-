@@ -12,8 +12,10 @@ faster-whisper>=1.0.3
 ctranslate2>=4.0.0  # GPU support for faster-whisper
 
 # ===== Text-to-Speech (TTS) =====
-edge-tts>=6.1.0
+edge-tts>=6.1.0  # Backup TTS
+git+https://github.com/Zyphra/Zonos.git  # Zyphra Zonos TTS (primary, from source)
 pydub>=0.25.1
+torchaudio>=2.0.0  # Required by Zonos
 
 # ===== Language Model (LLM) =====
 ollama>=0.1.7

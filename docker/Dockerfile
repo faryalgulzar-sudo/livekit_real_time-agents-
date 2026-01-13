@@ -19,8 +19,10 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     ffmpeg \
     curl \
+    git \
     build-essential \
     libcublas-12-1 \
+    espeak-ng \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
     && ln -sf /usr/bin/python3.11 /usr/bin/python
