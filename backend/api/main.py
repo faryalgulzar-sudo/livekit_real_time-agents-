@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 
-from .models import TokenRequest, TokenResponse, RoomCreateRequest, RoomCreateResponse
-from .auth import generate_access_token, create_room
+from models import TokenRequest, TokenResponse, RoomCreateRequest, RoomCreateResponse
+from auth import generate_access_token, create_room
 
 # Load environment variables
 load_dotenv(os.getenv("ENV_FILE", ".env.local"))
