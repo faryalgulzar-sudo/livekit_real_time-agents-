@@ -2,9 +2,13 @@
 FastAPI backend for LiveKit agent - JWT token generation and room management
 """
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
+import sys
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from common.cors import configure_cors
 
 from .models import TokenRequest, TokenResponse, RoomCreateRequest, RoomCreateResponse
 from .auth import generate_access_token, create_room
@@ -18,14 +22,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS configuration - adjust origins for production
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Change to specific domains in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Configure CORS with centralized configuration
+configure_cors(app)
 
 @app.get("/")
 async def root():

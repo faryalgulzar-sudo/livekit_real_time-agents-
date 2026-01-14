@@ -3,12 +3,12 @@ export const CONFIG = {
     typeof window !== 'undefined' && window.location.hostname.includes('drap.ai')
       ? '' // Use same-origin proxy
       : 'http://localhost:8000',
-  // For local development, use ws://localhost:7880
+  // For local development, use ws://localhost:7880 (containerized LiveKit)
   // For production, use wss://livekit.drap.ai
   LIVEKIT_URL:
     typeof window !== 'undefined' && window.location.hostname.includes('drap.ai')
       ? 'wss://livekit.drap.ai'
-      : 'ws://localhost:7880',
+      : 'ws://localhost:7880',  // Points to containerized LiveKit server
   DEFAULT_ROOM: 'voice-room',
 };
 

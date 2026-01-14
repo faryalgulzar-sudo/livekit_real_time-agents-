@@ -50,6 +50,15 @@ class EdgeSynthesizeStream(SynthesizeStream):
         try:
             print(f"[Edge TTS] Synthesizing: {self._text[:50]}...")
 
+            # Initialize the output emitter
+            request_id = str(uuid.uuid4())
+            output_emitter.initialize(
+                request_id=request_id,
+                sample_rate=self._sample_rate,
+                num_channels=1,
+                mime_type="audio/mp3",  # Edge TTS returns MP3
+            )
+
             # Create Edge TTS communicate instance
             communicate = edge_tts.Communicate(
                 text=self._text,
@@ -103,7 +112,7 @@ class EdgeSynthesizeStream(SynthesizeStream):
             import traceback
             traceback.print_exc()
         finally:
-            output_emitter.aclose()
+            output_emitter.end_input()
 
     async def __anext__(self) -> SynthesizedAudio:
         if self._task is None:
@@ -187,9 +196,26 @@ class EdgeSynthesizeStream(SynthesizeStream):
 
 
 def create():
-    """Create Edge TTS instance for English."""
+    """
+    Create Edge TTS instance with configurable voice.
+
+    Voice can be set via EDGE_TTS_VOICE environment variable.
+
+    Popular voices:
+    - en-US-AriaNeural (female, friendly - DEFAULT)
+    - en-US-GuyNeural (male, casual)
+    - en-US-JennyNeural (female, professional)
+    - en-US-AndrewNeural (male, warm)
+    - en-GB-SoniaNeural (female, British)
+    - en-AU-NatashaNeural (female, Australian)
+    """
+    import os
+    voice = os.getenv("EDGE_TTS_VOICE", "en-US-AriaNeural")
+    rate = os.getenv("EDGE_TTS_RATE", "+0%")  # +10% = faster, -10% = slower
+    pitch = os.getenv("EDGE_TTS_PITCH", "+0Hz")
+
     return EdgeTTS(
-        voice="en-US-AriaNeural",
-        rate="+0%",
-        pitch="+0Hz"
+        voice=voice,
+        rate=rate,
+        pitch=pitch
     )

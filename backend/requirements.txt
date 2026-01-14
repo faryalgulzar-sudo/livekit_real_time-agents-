@@ -46,6 +46,15 @@ typing-extensions>=4.9.0
 # ===== CORS Support =====
 # (included in fastapi, no separate package needed)
 
+# ===== Zyphra Zonos TTS =====
+# https://github.com/Zyphra/Zonos
+# Note: Install from source or HuggingFace
+# git clone https://github.com/Zyphra/Zonos.git && cd Zonos && pip install -e .
+# Or install via pip when available
+torch>=2.0.0
+torchaudio>=2.0.0
+# zonos  # Install from source for now
+
 # ===== Frontend =====
 # Note: Frontend uses LiveKit JS SDK via CDN
 # - livekit-client (JS): https://unpkg.com/livekit-client

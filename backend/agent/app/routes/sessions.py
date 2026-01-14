@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from uuid import UUID
+from datetime import datetime
 
 from app.core.db import get_db
 from app.core.models import ConversationSession
@@ -77,4 +79,28 @@ def get_session(session_id: UUID, db: Session = Depends(get_db)):
         "state": session.state,
         "collected_data": session.collected_data or {},
         "created_at": session.created_at.isoformat() if session.created_at else None
+    }
+
+
+@router.patch("/{session_id}/finalize")
+def finalize_session(session_id: UUID, db: Session = Depends(get_db)):
+    """
+    Mark session as completed and set final state.
+    Called during agent cleanup to properly close the session.
+    """
+    session = db.query(ConversationSession).filter_by(id=session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Update session state to COMPLETED
+    session.state = "COMPLETED"
+    session.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "status": "finalized",
+        "session_id": str(session.id),
+        "final_state": session.state,
+        "finalized_at": session.updated_at.isoformat()
     }

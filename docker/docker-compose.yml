@@ -1,48 +1,154 @@
 services:
+  # LiveKit Server (WebRTC media server)
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: agent786-livekit
+    command: --dev --bind 0.0.0.0
+    ports:
+      - "7880:7880"   # HTTP
+      - "7881:7881"   # WebRTC TCP
+      - "7882:7882/udp"  # WebRTC UDP (TURN)
+    environment:
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=secret
+    restart: unless-stopped
+    networks:
+      - agent786-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: agent786-postgres
+    environment:
+      - POSTGRES_USER=dentist
+      - POSTGRES_PASSWORD=dentist_pass
+      - POSTGRES_DB=dentist_ai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dentist"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # FastAPI Backend
   fastapi:
     build:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: agent786-fastapi
-    working_dir: /app/backend/agent
+    working_dir: /app
     environment:
+      # Python path for imports
+      - PYTHONPATH=/app
+      # LiveKit Configuration (using WSS through Nginx proxy for secure communication)
       - LIVEKIT_URL=${LIVEKIT_URL:-wss://livekit.drap.ai}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
+
+      # Database Configuration
       - DATABASE_URL=${DATABASE_URL:-postgresql://dentist:dentist_pass@localhost:5432/dentist_ai}
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      - DB_POOL_SIZE=${DB_POOL_SIZE:-10}
+      - DB_MAX_OVERFLOW=${DB_MAX_OVERFLOW:-20}
+      - DB_POOL_RECYCLE=${DB_POOL_RECYCLE:-3600}
+      - DB_POOL_PRE_PING=${DB_POOL_PRE_PING:-true}
+
+      # Agent Configuration
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
+      - AGENT_API_BASE_URL=${AGENT_API_BASE_URL:-http://localhost:8000}
+      - TENANT_ID=${TENANT_ID:-demo_clinic}
+
+      # CORS Configuration
+      - ENV=${ENV:-development}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
+
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+    command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - ../backend/api:/app/backend/api
-      - ../backend/agent:/app/backend/agent
+      - ../backend:/app/backend
       - ../config/.env.local:/app/config/.env.local
     restart: unless-stopped
     network_mode: host
+    depends_on:
+      postgres:
+        condition: service_healthy
 
-  # LiveKit Agent Worker
+  # LiveKit Agent Worker with GPU support for Zonos TTS
   agent:
     build:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: agent786-agent
     working_dir: /app
+    # GPU runtime for Faster Whisper and CUDA acceleration
+    runtime: nvidia
     environment:
+      # LiveKit Configuration (using WSS through Nginx proxy for secure communication)
       - LIVEKIT_URL=${LIVEKIT_URL:-wss://livekit.drap.ai}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
+
+      # Database Configuration
       - DATABASE_URL=${DATABASE_URL:-postgresql://dentist:dentist_pass@localhost:5432/dentist_ai}
+      - DB_POOL_SIZE=${DB_POOL_SIZE:-10}
+      - DB_MAX_OVERFLOW=${DB_MAX_OVERFLOW:-20}
+      - DB_POOL_RECYCLE=${DB_POOL_RECYCLE:-3600}
+      - DB_POOL_PRE_PING=${DB_POOL_PRE_PING:-true}
+
+      # Agent Configuration
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
       - AGENT_API_BASE_URL=${AGENT_API_BASE_URL:-http://localhost:8000}
+      - AGENT_API_TIMEOUT=${AGENT_API_TIMEOUT:-5}
+      - AGENT_API_RETRIES=${AGENT_API_RETRIES:-3}
       - TENANT_ID=${TENANT_ID:-demo_clinic}
+
+      # Edge TTS Configuration (primary TTS, fast and reliable)
+      - EDGE_TTS_VOICE=${EDGE_TTS_VOICE:-en-US-GuyNeural}
+      - EDGE_TTS_RATE=${EDGE_TTS_RATE:-+0%}
+      - EDGE_TTS_PITCH=${EDGE_TTS_PITCH:-+0Hz}
+
+      # Faster Whisper STT Configuration (GPU-accelerated with medium model)
+      - FASTER_WHISPER_DEVICE=${FASTER_WHISPER_DEVICE:-cuda}
+      - FASTER_WHISPER_COMPUTE_TYPE=${FASTER_WHISPER_COMPUTE_TYPE:-float16}
+      - FASTER_WHISPER_MODEL=${FASTER_WHISPER_MODEL:-medium}
+
+      # CORS Configuration
+      - ENV=${ENV:-development}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
+
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DEBUG_SQL=${DEBUG_SQL:-false}
+
+      # NVIDIA/CUDA Configuration
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
     command: python backend/agent/agent.py dev
     volumes:
-      - ../backend/agent:/app/backend/agent
+      - ../backend:/app/backend
       - ../config/.env.local:/app/config/.env.local
+      # Mount for Zonos model cache (optional but recommended)
+      - zonos-models:/root/.cache/huggingface
     depends_on:
-      - fastapi
+      postgres:
+        condition: service_healthy
+      fastapi:
+        condition: service_started
     restart: unless-stopped
     network_mode: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   # Next.js Frontend
   frontend:
@@ -50,20 +156,23 @@ services:
       context: ../frontend
       dockerfile: Dockerfile
     container_name: agent786-frontend
-    ports:
-      - "3000:3000"
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=https://agent007.drap.ai
-      - PORT=3000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://agent007.drap.ai}
+      - PORT=3001
     volumes:
       - ../frontend:/app
       - /app/node_modules
       - /app/.next
-    networks:
-      - agent786-network
+    network_mode: host
     restart: unless-stopped
 
 networks:
   agent786-network:
     driver: bridge
+
+volumes:
+  # Persistent volume for Zonos model cache
+  zonos-models:
+  # Persistent volume for PostgreSQL data
+  postgres-data:

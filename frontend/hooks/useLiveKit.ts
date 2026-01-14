@@ -313,12 +313,22 @@ export function useLiveKit(): UseLiveKitReturn {
     try {
       if (!isSpeaking) {
         console.log('Starting microphone...');
-        await room.localParticipant.setMicrophoneEnabled(true);
 
-        const micTrack = room.localParticipant.getTrackPublication(LiveKit.Track.Source.Microphone);
-        if (micTrack?.track instanceof LiveKit.LocalAudioTrack) {
-          monitorAudioLevel(micTrack.track);
-        }
+        // Create microphone track manually with explicit source
+        const localTrack = await LiveKit.createLocalAudioTrack({
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        });
+
+        // Publish track with EXPLICIT SOURCE set to Microphone
+        await room.localParticipant.publishTrack(localTrack, {
+          source: LiveKit.Track.Source.Microphone,
+          name: 'microphone',
+        });
+
+        console.log('Microphone track published with source: Microphone');
+        monitorAudioLevel(localTrack);
 
         setIsSpeaking(true);
         addTranscript('You', 'Started speaking');

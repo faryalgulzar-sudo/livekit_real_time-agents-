@@ -161,5 +161,16 @@ class FasterWhisperStream:
 
 # Entry point for LiveKit Agent
 def create():
-    # Using CPU - change to "cuda" only if you have CUDA properly installed
-    return FasterWhisperSTT(model_size="base", device="cpu")
+    """
+    Create Faster Whisper STT with environment-based configuration.
+
+    Environment variables:
+    - FASTER_WHISPER_DEVICE: cuda or cpu (default: cuda)
+    - FASTER_WHISPER_MODEL: tiny, base, small, medium, large (default: base)
+    - FASTER_WHISPER_COMPUTE_TYPE: float16, int8, etc (default: auto)
+    """
+    import os
+    device = os.getenv("FASTER_WHISPER_DEVICE", "cuda")
+    model_size = os.getenv("FASTER_WHISPER_MODEL", "base")
+
+    return FasterWhisperSTT(model_size=model_size, device=device)

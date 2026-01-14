@@ -1,9 +1,14 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from common.cors import configure_cors
+
 from app.routes.sessions import router as sessions_router
 from app.core.db import engine
 from app.core.models import Base
-import os
 from livekit import api
 from pydantic import BaseModel
 from typing import Optional
@@ -11,14 +16,8 @@ from typing import Optional
 
 app = FastAPI(title="Dentist Voice Agent API")
 
-# CORS configuration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Change to specific domains in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Configure CORS with centralized configuration
+configure_cors(app)
 
 # Pydantic models for token endpoint
 class TokenRequest(BaseModel):
@@ -42,6 +41,19 @@ app.include_router(sessions_router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/health/db")
+def health_check_db():
+    """Database-specific health check"""
+    from app.core.db import check_db_health
+
+    is_healthy = check_db_health()
+
+    if is_healthy:
+        return {"status": "healthy", "database": "connected"}
+    else:
+        raise HTTPException(status_code=503, detail="Database unavailable")
 
 @app.post("/api/generate-token", response_model=TokenResponse)
 async def generate_token(request: TokenRequest):
