@@ -338,10 +338,10 @@ export function useLiveKit(): UseLiveKitReturn {
       if (track.kind === LiveKit.Track.Kind.Audio) {
         console.log('🔊 Processing audio track from', participant.identity);
 
-        const audioElement = track.attach();
+        const audioElement = track.attach() as HTMLAudioElement;
         audioElement.volume = currentVolume;
         audioElement.autoplay = true;
-        audioElement.playsInline = true;
+        (audioElement as any).playsInline = true; // Safari compatibility
 
         // ✅ CRITICAL: Add ID for debugging
         audioElement.id = `audio-${participant.identity}`;
